@@ -1,5 +1,8 @@
 import sys
-sys.path.append("./")
+sys.path.append("../thirdparty/pyAudioAnalysis")
+
+print sys.path
+from pyAudioAnalysis.audioFeatureExtraction import stHarmonic
 from pyAudioAnalysis.audioFeatureExtraction import stHarmonic
 from pyAudioAnalysis import audioBasicIO
 import numpy
@@ -8,11 +11,12 @@ import os
 import matplotlib.pyplot as plt
 plt.switch_backend("agg")
 
-f = codecs.open("pinyin/finals", "r", encoding = "utf8")
+print sys.path
+f = codecs.open("../conf/finals", "r", encoding = "utf8")
 finals = set([x.strip() for x in f.readlines()])
 f.close()
 
-f = codecs.open("pinyin/initials", "r", encoding = "utf8")
+f = codecs.open("../conf/initials", "r", encoding = "utf8")
 initials = set([x.strip() for x in f.readlines()])
 f.close()
 
@@ -163,9 +167,11 @@ def calculateParams(vec, beg, end, final, fs):
         val = pickMin(v)
     else:
         val = pickMax(v)
-    val = 12 * numpy.log2(val/100)
+    st = 12 * numpy.log2(val/100)
+    if st > 20:
+        print(val)
 
-    return val
+    return st
 
 
 def calculateST(vec, finals, fs):
@@ -225,7 +231,7 @@ def draw(info):
         plt.close("all")
 
 
-def main(wav_dir, lab_dir):
+def main(wav_dir, lab_dir, out):
     wav_info, fs = extractF0(wav_dir)
     lab_info, _ = extractFinals(lab_dir)
     res = {}
@@ -234,11 +240,11 @@ def main(wav_dir, lab_dir):
         finals = lab_info[k]
         params =  calculateST(vec, finals, fs)
         res[k] = params
-    draw(res)
+    draw(res, out)
 
 if __name__ == "__main__":
-    if len(sys.argv) != 3:
-        print "Usage {} wav text".format(sys.argv[0])
+    if len(sys.argv) != 4:
+        print "Usage {} wav text out".format(sys.argv[0])
         exit(1)
 
-    main(sys.argv[1], sys.argv[2])
+    main(sys.argv[1], sys.argv[2], sys.argv[3])
