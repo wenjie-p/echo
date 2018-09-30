@@ -18,7 +18,16 @@ def FocusVisualization(params, out):
         for circle in circles:
             ax.add_artist(circle)
         ax.axis("equal")
+    
+        for param in sent:
+            x = param["x"]
+            y = param["y"]
+            p = param["p"]
+            ax.text(x, y, p)
 
-        ax.axis([0, 2.0, 0, 2.0])
+#        ax.set_xlim([0, 1.0])
+#        ax.set_ylim([0, 2.0])
+        ax.axis([0, 1.8, 0, 2.0])
+
         fig.savefig("{}/{}.png".format(out, f))
         plt.close("all")

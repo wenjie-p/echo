@@ -20,6 +20,12 @@ def GetSt(phn, sts, xmin, xmax):
         if idx in sts:
             vec.append(sts[idx])
 
+    print("beg: {} end: {} ".format(beg, end))
+    #print("sts: ", sts)
+    if len(vec) == 0:
+        return 0.0
+        
+    #print(vec)
 
     if phn.endswith("3"):
         st = min(vec)
@@ -27,6 +33,22 @@ def GetSt(phn, sts, xmin, xmax):
         st = max(vec)
 
     return st
+
+def SmoothingST(param):
+
+    new = []
+    for idx in range(len(param)):
+        dic = param[idx]
+        st = dic["st"]
+        if st == 0.0:
+            if idx > 0:
+                st = param[idx-1]["st"]
+            else:
+                st = param[idx+1]["st"]
+        dic["st"] = st
+        new.append(dic)
+
+    return new
 
 
 def FeatureAnalysis(sts, phns):
@@ -38,10 +60,13 @@ def FeatureAnalysis(sts, phns):
         phn = ele["text"]
         dur = ele["dur"]
 
+        #print("phn: {}".format(phn))
+        #print("xmin: {}, xmax: {}".format(xmin, xmax))
         st = GetSt(phn, sts, xmin, xmax)
         val = {"phn": phn, "dur": dur, "st": st}
         param.append(val)
 
+    param = SmoothingST(param)
     return param
         
 

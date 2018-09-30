@@ -43,7 +43,8 @@ def GetFinalInfo(xmin, xmax, SYItems, finals):
 
     dur = PostProcessingDuration(durs)
     
-    return {"text": " ".join(text), "xmin": durs[0][0], "xmax": durs[-1][1]}
+    #return {"text": " ".join(text), "xmin": durs[0][0], "xmax": durs[-1][1]}
+    return { "xmin": durs[0][0], "xmax": durs[-1][1]}
 
 
 def LoadConf(fp):
@@ -68,7 +69,8 @@ def ProcessingItems(PYItems, SYItems):
 
         item = GetFinalInfo(py["xmin"], py["xmax"], SYItems, finals)
         item["dur"] = py_dur
-        
+        item["text"] = py["text"]
+
         items.append(item)
 
     return items
