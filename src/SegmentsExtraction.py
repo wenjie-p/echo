@@ -1,3 +1,11 @@
+#This script does analysis on the TextGrid file
+#The first layer "PY" and the second layer "SY" will be analyzed
+#For every final in the "SY" layer, let's say "ao" for example:
+#{"text": "ao", "xmin":xmin, "xmax": xmax, "dur": dur}
+#parameter like "xmin" and "xmax" come from the "SY" layer to extract the 
+#corresponding st for the given time range. the "dur" is the duration comes 
+#from the fisrt layer representing the whole syllable duration.
+
 import codecs
 from BasicIO import load_data, write_data
 from Wrapper import ProcessingDir

@@ -3,6 +3,8 @@ form choose a sound file
     text wave_file sx307
     text pitch_name sx307
     text out_dir ../pitch
+    text top 300
+    text bot 50
 endform
 
 sound = Read from file: wave_file$ 
@@ -10,7 +12,10 @@ plusObject: sound
 selectObject: sound
 out_file$ = out_dir$ + "/" + pitch_name$ + ".pitch"
 
-To Pitch: 0, 75, 600
+bot = number(bot$)
+top = number(top$)
+
+To Pitch: 0, bot, top
 no_of_frames = Get number of frames
 
 

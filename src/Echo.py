@@ -3,12 +3,23 @@ import shutil
 import os
 import numpy
 from AudioIO import ReadAudioFile
-from BasicIO import load_data
+from BasicIO import load_data, write_data
 from FocusVisualization import FocusVisualization
 from ExtractF0s import ExtractF0s
 from SegmentsExtraction import SegmentsExtraction
 from ExtractStUsingPraat import StExtraction
 
+def RemoveInvaildST(vec):
+
+    std = numpy.std(vec)
+
+    mean = numpy.mean(vec)
+    bot = mean - 2*std
+    top = mean + 2*std
+
+    new = [e for e in vec if e > bot and e < top]
+
+    return new
 
 def GetSt(phn, sts, xmin, xmax):
 
@@ -19,20 +30,21 @@ def GetSt(phn, sts, xmin, xmax):
     for idx in list(range(beg, end+1)):
         if idx in sts:
             vec.append(sts[idx])
+    #print("{}: ".format(phn), vec)
 
-    print("beg: {} end: {} ".format(beg, end))
+    #print("beg: {} end: {} ".format(beg, end))
     #print("sts: ", sts)
     if len(vec) == 0:
-        return 0.0
-        
+        return 0.0, 0.0
+    vec = RemoveInvaildST(vec)
     #print(vec)
 
-    if phn.endswith("3"):
-        st = min(vec)
-    else:
-        st = max(vec)
+   # if phn.endswith("3"):
+   #     st = min(vec)
+   # else:
+   #     st = max(vec)
 
-    return st
+    return max(vec), min(vec)
 
 def SmoothingST(param):
 
@@ -54,6 +66,8 @@ def SmoothingST(param):
 def FeatureAnalysis(sts, phns):
 
     param = []
+    sen_st_min = 999
+
     for ele in phns:
         xmin = ele["xmin"]
         xmax = ele["xmax"]
@@ -62,15 +76,30 @@ def FeatureAnalysis(sts, phns):
 
         #print("phn: {}".format(phn))
         #print("xmin: {}, xmax: {}".format(xmin, xmax))
-        st = GetSt(phn, sts, xmin, xmax)
-        val = {"phn": phn, "dur": dur, "st": st}
+        st_max, st_min = GetSt(phn, sts, xmin, xmax)
+        if st_min != 0.0 and st_min < sen_st_min:
+            sen_st_min = st_min
+
+        val = {"phn": phn, "dur": dur, "st": st_max}
         param.append(val)
 
     param = SmoothingST(param)
-    return param
+    return param, sen_st_min
         
+def SaveInfo(f, param):
 
-def GetParams(sts, phns):
+    vec = []
+    first = "\t".join(["text", "duration", "semitone"])
+    vec.append(first)
+
+    for val in param:
+        ele = "\t".join([val["phn"], str(val["dur"]), str(val["st"])])
+        vec.append(ele)
+
+    write_data(f, vec)
+
+
+def GetParams(sts, phns, out):
 
     params = {}
 
@@ -81,11 +110,25 @@ def GetParams(sts, phns):
         sts_ = sts[f]
         phns_ = phns[f]
         
-        print("filename: {}".format(f))
+        #print("filename: {}".format(f))
         #print("F0s: ", f0s_)
-        params[f] = FeatureAnalysis(sts_, phns_)
+        params[f] = {}
+        params[f]["param"], params[f]["st_min"] = FeatureAnalysis(sts_, phns_)
+        
+        fp = out + os.sep + f + ".dat"
+        SaveInfo(fp, params[f]["param"])
 
     return params
+
+
+def CalculateK(y, r):
+
+    yy_max = max(y)
+    yy_min = min(y)
+    k = 1/(yy_max - yy_min)
+
+    return k, yy_max, yy_min
+
 
 def Normalization(x, y, p):
 
@@ -95,18 +138,34 @@ def Normalization(x, y, p):
     x_ = numpy.cumsum(x_nor)
     x_axis = [x_[i]-r[i] for i in range(len(x_))]
     
+    r_ori = [e/2 for e in x]
+    k, yy_max, yy_min = CalculateK(y, r_ori)
 
-    st_min = min(y)
-    st_max = max(y)
+    y_axis = [k*(e - yy_min) for e in y]
+    y_max = -99
+    y_min = 99
+    p1 = p2 = 0
+    for i in range(len(y_axis)):
+        a = y_axis[i] + r[i]
+        b = y_axis[i] - r[i]
+        if a > y_max :
+            y_max = a
+            p1 = i
+        if b < y_min :
+            y_min = b
+            p2 = i
+    yy_max = y[p1] + r_ori[p1]
+    yy_min = y[p2] - r_ori[p2]
     
-    y_axis = [(e-st_min)/(st_max - st_min) + 0.5 for e in y]
+    #print ("y_axis:", y_axis)
+    #print("r:", r)
     
     res = []
     for idx in range(len(r)):
-        dic = {"x": x_axis[idx], "y": y_axis[idx], "r": r[idx], "p": p[idx]}
+        dic = {"x": x_axis[idx],"y_max": y_max+r[p2], "y_min": y_min+r[p2], "y": y_axis[idx], "r": r[idx], "p": p[idx]}
         res.append(dic)
 
-    return res
+    return res, yy_max, yy_min, r[p2], k
 
 
 def PostProcessingInfo(info):
@@ -118,16 +177,22 @@ def PostProcessingInfo(info):
         y = []
         p = []
         
-        for param in params:
+        for param in params["param"]:
             x.append(param["dur"])
             y.append(param["st"])
             p.append(param["phn"])
-        #print("filename: {}".format(f))
+        print("filename: {}".format(f))
         #print("x: ", x)
         #print("y: ", y)
         #print("p: ", p)
-        new_params = Normalization(x, y, p)
-        new_info[f] = new_params
+        new_params, yy_max, yy_min, r_min, k = Normalization(x, y, p)
+        new_info[f] = {}
+        new_info[f]["param"] = new_params
+        new_info[f]["st_min"] = params["st_min"]
+        new_info[f]["st_max"] = yy_max
+        new_info[f]["st_min"] = yy_min
+        new_info[f]["r_min"] = r_min
+        new_info[f]["k"] = k
 
     return new_info
 
@@ -138,13 +203,13 @@ def PostProcessingDir(d):
         shutil.rmtree(d)
         
 
-def main(wav, txt, out):
+def main(wav, txt, out, gender):
 
-    sts = StExtraction(wav)
+    sts = StExtraction([wav, gender])
 
     phns = SegmentsExtraction(txt)
 
-    info = GetParams(sts, phns)
+    info = GetParams(sts, phns, out)
 
     info = PostProcessingInfo(info)
     
@@ -155,8 +220,8 @@ def main(wav, txt, out):
 
 if __name__ == "__main__":
 
-    if len(sys.argv) != 4:
-        print("Usage: {} wav txt out".format(sys.argv[0]))
+    if len(sys.argv) != 5:
+        print("Usage: {} wav txt out gender".format(sys.argv[0]))
         exit(1)
 
-    main(sys.argv[1], sys.argv[2], sys.argv[3])
+    main(sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4])

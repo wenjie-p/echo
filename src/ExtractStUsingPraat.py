@@ -23,6 +23,7 @@ def Pitch2St(data):
     return sts
 
 
+@ProcessingDir
 def GenerateStFromPitch(wav):
 
     head, tail = os.path.split(wav)
@@ -37,6 +38,7 @@ def GenerateStFromPitch(wav):
     return sts
 
 
+@ProcessingDir
 def GeneratePitch(wav):
 
     if not os.path.exists("../pitch"):
@@ -47,18 +49,25 @@ def GeneratePitch(wav):
     pitch_name = tail.replace(".wav", "")
     pitch_dir = "../pitch"
     pitch = pitch_dir + os.sep + pitch_name + ".pitch"
-
+    print(gender)
     if os.path.exists(pitch):
         return 
     praat = "/Applications/Praat.app/Contents/MacOS/Praat"
+    pitch_bot = "50"
+    pitch_top = "300"
+    if gender == "1":
+        pitch_top = "500"
+        pitch_bot = "75"
 
-    subprocess.call([praat, "--run", "ExtractF0.praat", wav, pitch_name, pitch_dir])
+    subprocess.call([praat, "--run", "ExtractF0.praat", wav, pitch_name, pitch_dir, pitch_top, pitch_bot])
 
 
-@ProcessingDir
 def StExtraction(wav):
 
-    GeneratePitch(wav)
-    sts = GenerateStFromPitch(wav)
+    wav_dr = wav[0]
+    global gender
+    gender = wav[1]
+    GeneratePitch(wav_dr)
+    sts = GenerateStFromPitch(wav_dr)
 
     return sts
